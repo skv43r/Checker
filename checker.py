@@ -7,7 +7,7 @@
     - url_sms_activate
     - url_api_sms
 '''
-
+import logging
 import os
 import asyncio
 import requests
@@ -17,6 +17,13 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand
 from dotenv import load_dotenv
 
+logging.basicConfig(level=logging.DEBUG,
+                    filename='logs.log',
+                    format='%(levelname)s (%(asctime)s): %(message)s '
+                    '(Line: %(lineno)d) [%(filename)s]',
+                    datefmt='%d/%m/%Y %I:%M:%S',
+                    encoding='utf-8',
+                    filemode='w')
 load_dotenv()
 TOKEN_API = os.getenv('TOKEN_API')
 if TOKEN_API is None:
@@ -129,7 +136,7 @@ async def start_command(message: types.Message) -> None:
 
 
 @dp.message(Command(commands=['check']))
-async def check_command() -> None:
+async def check_command(message: types.Message) -> None:
     '''
     Обработчик команды /check.
     Вызывает функцию get_numbers для проверки доступных номеров.
@@ -138,7 +145,7 @@ async def check_command() -> None:
 
 
 @dp.message(Command(commands=['balance']))
-async def balance_command() -> None:
+async def balance_command(message: types.Message) -> None:
     '''
     Обработчик команды /balance.
     Вызывает функцию get_balance для проверки баланса счета.
