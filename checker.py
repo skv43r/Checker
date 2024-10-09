@@ -17,6 +17,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand
 from dotenv import load_dotenv
 
+
 class BotHandler:
 
     TOKEN_API = os.getenv('TOKEN_API')
@@ -30,12 +31,10 @@ class BotHandler:
     if admin_id is None:
         raise ValueError("Переменная окружения 'admin_id' не установлена")
 
-
     def __init__(self, bot: Bot, admin_id: int) -> None:
         self.bot = bot
         self.admin_id = admin_id
         self.stop = False
-
 
     async def start_command(self, message: types.Message) -> None:
         '''
@@ -44,8 +43,7 @@ class BotHandler:
         доступных номеров.
         '''
         await message.answer(text="Работаем")
-        asyncio.create_task(self.check_loop())    
-
+        asyncio.create_task(self.check_loop())
 
     async def check_command(self, message: types.Message) -> None:
         '''
@@ -54,14 +52,12 @@ class BotHandler:
         '''
         await self.get_numbers()
 
-
     async def balance_command(self, message: types.Message) -> None:
         '''
         Обработчик команды /balance.
         Вызывает функцию get_balance для проверки баланса счета.
         '''
         await self.get_balance()
-
 
     async def stop_command(self, message: types.Message) -> None:
         '''
@@ -71,7 +67,6 @@ class BotHandler:
         '''
         await message.answer("Остановлен")
         self.stop = True
-
 
     async def check_loop(self) -> None:
         '''
@@ -83,8 +78,7 @@ class BotHandler:
         while not self.stop:
             if await self.get_numbers():
                 await asyncio.sleep(1800)
-            await asyncio.sleep(600)    
-
+            await asyncio.sleep(600)
 
     async def get_numbers(self) -> bool:
         '''
@@ -101,9 +95,11 @@ class BotHandler:
                     "Переменная окружения 'url_sms_activate' не установлена."
                     )
             headers = {
-                'user-agent': ('Mozilla/5.0 (iPad; CPU OS 16_3 like Mac OS X) '
-                            'AppleWebKit/605.1.15 (KHTML, like Gecko) '
-                            'GSA/289.0.577695730 Mobile/15E148 Safari/604.1')
+                'user-agent': (
+                    'Mozilla/5.0 (iPad; CPU OS 16_3 like Mac OS X) '
+                    'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+                    'GSA/289.0.577695730 Mobile/15E148 Safari/604.1'
+                    )
                 }
             r = requests.get(url, headers=headers, timeout=10)
             print(r.text)
@@ -125,7 +121,6 @@ class BotHandler:
         await self.send_message("Нет доступных номеров")
         return False
 
-
     async def get_balance(self):
         '''
         Отправляет GET-запрос к API SMS Activate для получения баланса счета.
@@ -144,15 +139,13 @@ class BotHandler:
             # print(e)
             await self.send_message(f"Ошибка: {e}")
 
-
-    async def send_message(self, message: str) -> None: 
+    async def send_message(self, message: str) -> None:
         '''
         Отправляет сообщение администратору с указанным текстом.
         '''
         if self.admin_id is None:
             raise ValueError("Переменная окружения 'admin_id' не установлена")
         await bot.send_message(self.admin_id, message)
-
 
     async def on_startup(self):
         '''
@@ -168,8 +161,7 @@ class BotHandler:
 
         ]
         await self.bot.set_my_commands(bot_commands)
-        asyncio.create_task(self.check_loop())  
-
+        asyncio.create_task(self.check_loop())
 
     async def main(self) -> None:
         """
@@ -184,7 +176,7 @@ class BotHandler:
                             Command(commands=['balance']))
         dp.message.register(self.stop_command,
                             Command(commands=['stop']))
-        await dp.start_polling(self.bot)             
+        await dp.start_polling(self.bot)
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -202,7 +194,7 @@ if __name__ == '__main__':
     admin_id = int(os.getenv('admin_id', 0))
 
     if TOKEN_API is None or admin_id == 0:
-        raise ValueError("Переменные окружения 'TOKEN_API' и 'admin_id' должны" 
+        raise ValueError("Переменные окружения 'TOKEN_API' и 'admin_id' должны"
                          "быть установлены")
 
     bot = Bot(TOKEN_API)
