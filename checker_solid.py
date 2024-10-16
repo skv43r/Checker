@@ -7,46 +7,10 @@
     - url_sms_activate
     - url_api_sms
 '''
-import logging
-import os
 import asyncio
 import requests
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram import Bot, types
 from aiogram.types import BotCommand
-from dotenv import load_dotenv
-
-class Config:
-    @staticmethod
-    def get_token() -> str:
-        token = os.getenv('TOKEN_API')
-        if token is None:
-            raise ValueError("Переменная окружения 'TOKEN_API' не установлена")
-        return token
-
-    @staticmethod
-    def get_admin_id() -> int:
-        admin_id = os.getenv('admin_id')
-        if admin_id is None:
-            raise ValueError("Переменная окружения 'admin_id' не установлена")
-        return int(admin_id)
-
-    @staticmethod
-    def get_sms_activate_url() -> str:
-        url = os.getenv('url_sms_activate')
-        if url is None:
-            raise ValueError("Переменная окружения 'url_sms_activate' "
-                             "не установлена.")
-        return url
-
-    @staticmethod
-    def get_api_sms_url() -> str:
-        url = os.getenv('url_api_sms')
-        if url is None:
-            raise ValueError("Переменная окружения 'url_api_sms' "
-                             "не установлена.")
-        return url
 
 
 class SmsService:
@@ -59,9 +23,15 @@ class SmsService:
         '''
         await bot.send_message(self.admin_id, message)
 
+
 class NumberChecker:
-    def __init__(self, sms_service: SmsService):
+    def __init__(self,
+                 sms_service: SmsService,
+                 url_sms_activate: str,
+                 url_api_sms: str):
         self.sms_service = sms_service
+        self.url_sms_activate = url_sms_activate
+        self.url_api_sms = url_api_sms
 
     async def get_numbers(self, bot: Bot) -> bool:
         '''
@@ -72,7 +42,6 @@ class NumberChecker:
         количеством и ценой номеров.
         '''
         try:
-            url = Config.get_sms_activate_url()
             headers = {
                 'user-agent': (
                     'Mozilla/5.0 (iPad; CPU OS 16_3 like Mac OS X) '
@@ -80,7 +49,9 @@ class NumberChecker:
                     'GSA/289.0.577695730 Mobile/15E148 Safari/604.1'
                 )
             }
-            r = requests.get(url, headers=headers, timeout=10)
+            r = requests.get(self.url_sms_activate,
+                             headers=headers,
+                             timeout=10)
             r.raise_for_status()
             json_data = r.json()
             for value in json_data.values():
@@ -97,7 +68,7 @@ class NumberChecker:
             await self.sms_service.send_message(bot, f"Ошибка запроса: {e}")
         except ValueError as e:
             await self.sms_service.send_message(bot, f"Ошибка обработки "
-                                                "данных: {e}")
+                                                f"данных: {e}")
         await self.sms_service.send_message(bot, "Нет доступных номеров")
         return False
 
@@ -107,8 +78,7 @@ class NumberChecker:
         Функция отправляет сообщение администратору с полученным балансом.
         '''
         try:
-            url = Config.get_api_sms_url()
-            r = requests.get(url, timeout=10)
+            r = requests.get(self.url_api_sms, timeout=10)
             r.raise_for_status()
             balance = r.text.split('ACCESS_BALANCE:')[-1]
             await self.sms_service.send_message(bot, f"Баланс: {balance}")
@@ -117,13 +87,18 @@ class NumberChecker:
         except Exception as e:
             await self.sms_service.send_message(bot, f"Ошибка: {e}")
 
+
 class BotHandler:
-    def __init__(self, bot: Bot, admin_id: int) -> None:
+    def __init__(self,
+                 bot: Bot,
+                 admin_id: int,
+                 sms_service: SmsService,
+                 number_checker: NumberChecker) -> None:
         self.bot = bot
         self.admin_id = admin_id
         self.stop = False
-        self.sms_service = SmsService(self.admin_id)
-        self.number_checker = NumberChecker(self.sms_service)
+        self.sms_service = sms_service
+        self.number_checker = number_checker
 
     async def start_command(self, message: types.Message) -> None:
         '''
@@ -140,14 +115,14 @@ class BotHandler:
         Обработчик команды /check.
         Вызывает функцию get_numbers для проверки доступных номеров.
         '''
-        await self.number_checker.get_numbers(bot)
+        await self.number_checker.get_numbers(self.bot)
 
     async def balance_command(self, message: types.Message) -> None:
         '''
         Обработчик команды /balance.
         Вызывает функцию get_balance для проверки баланса счета.
         '''
-        await self.number_checker.get_balance(bot)
+        await self.number_checker.get_balance(self.bot)
 
     async def stop_command(self, message: types.Message) -> None:
         '''
@@ -157,6 +132,8 @@ class BotHandler:
         '''
         await message.answer("Остановлен")
         self.stop = True
+        if hasattr(self, 'check_loop_task'):
+            self.check_loop_task.cancel()
 
     async def check_loop(self) -> None:
         '''
@@ -167,7 +144,7 @@ class BotHandler:
         '''
         self.stop = False
         while not self.stop:
-            if await self.number_checker.get_numbers(bot):
+            if await self.number_checker.get_numbers(self.bot):
                 await asyncio.sleep(1800)
             await asyncio.sleep(600)
 
@@ -185,31 +162,3 @@ class BotHandler:
         ]
         await self.bot.set_my_commands(bot_commands)
         asyncio.create_task(self.check_loop())
-
-    async def main(self) -> None:
-        """
-        Запускает бота и начинает процесс опроса доступных номеров.
-        """
-        dp = Dispatcher(storage=MemoryStorage())
-        dp.message.register(self.start_command,
-                            Command(commands=['start']))
-        dp.message.register(self.check_command,
-                            Command(commands=['check']))
-        dp.message.register(self.balance_command,
-                            Command(commands=['balance']))
-        dp.message.register(self.stop_command,
-                            Command(commands=['stop']))
-        await dp.start_polling(self.bot)
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO,
-                    filename='logs.log',
-                    format='%(levelname)s (%(asctime)s): %(message)s '
-                    '(Line: %(lineno)d) [%(filename)s]',
-                    datefmt='%d/%m/%Y %I:%M:%S',
-                    encoding='utf-8',
-                    filemode='w')
-    load_dotenv()
-    bot = Bot(token=Config.get_token())
-    handler = BotHandler(bot, Config.get_admin_id())
-    asyncio.run(handler.main())
