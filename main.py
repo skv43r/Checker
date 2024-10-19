@@ -33,7 +33,9 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
 from dotenv import load_dotenv
-from checker_solid import BotHandler, SmsService, NumberChecker
+from sms_service import SmsService
+from number_checker import NumberChecker
+from bot_handler import BotHandler
 
 
 def load_config() -> tuple[str, int, str, str]:
