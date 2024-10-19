@@ -42,11 +42,18 @@ class NumberChecker:
                         )
                         await self.sms_service.send_message(bot, message)
                         return True
+        except ConnectionError:
+            await self.sms_service.send_message(bot, "Нет соединения с API")
+        except TimeoutError:
+            await self.sms_service.send_message(bot, "Время ожидания истекло")
         except requests.RequestException as e:
             await self.sms_service.send_message(bot, f"Ошибка запроса: {e}")
         except ValueError as e:
             await self.sms_service.send_message(bot, f"Ошибка обработки "
-                                                f"данных: {e}")
+                                                     f"данных: {e}")
+        except Exception as e:
+            await self.sms_service.send_message(bot, f"Неожиданная ошибка: {e}")
+        
         await self.sms_service.send_message(bot, "Нет доступных номеров")
         return False
 
@@ -60,7 +67,11 @@ class NumberChecker:
             r.raise_for_status()
             balance = r.text.split('ACCESS_BALANCE:')[-1]
             await self.sms_service.send_message(bot, f"Баланс: {balance}")
+        except ConnectionError:
+            await self.sms_service.send_message(bot, "Нет соединения с API")
+        except TimeoutError:
+            await self.sms_service.send_message(bot, "Время ожидания истекло")
         except requests.RequestException as e:
             await self.sms_service.send_message(bot, f"Ошибка запроса: {e}")
         except Exception as e:
-            await self.sms_service.send_message(bot, f"Ошибка: {e}")
+            await self.sms_service.send_message(bot, f"Неожиданная ошибка: {e}")
