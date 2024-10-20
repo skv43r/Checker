@@ -4,6 +4,7 @@ from aiogram.types import BotCommand
 from sms_service import SmsService
 from number_checker import NumberChecker
 
+
 class BotHandler:
     def __init__(self,
                  bot: Bot,
