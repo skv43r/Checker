@@ -1,5 +1,6 @@
 from aiogram import Bot
 
+
 class SmsService:
     def __init__(self, admin_id: int):
         self.admin_id = admin_id
