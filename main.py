@@ -3,12 +3,9 @@
 который взаимодействует с сервисом проверки номеров и отправки SMS.
 
 Импортируемые библиотеки:
-- os: для работы с переменными окружения.
 - asyncio: для асинхронного программирования.
 - logging: для ведения логов.
 - aiogram: библиотека для работы с Telegram Bot API.
-- dotenv: для загрузки переменных окружения из файла .env.
-- checker_solid: пользовательские классы для обработки логики бота.
 
 Основные функции:
 - load_config: загружает конфигурацию из переменных окружения.
@@ -26,43 +23,37 @@
 - /balance: отображает баланс.
 - /stop: останавливает бота.
 """
-import os
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
-from dotenv import load_dotenv
 from sms_service import SmsService
 from number_checker import NumberChecker
 from bot_handler import BotHandler
+from config import Settings
 
 
-def load_config() -> tuple[str, int, str, str]:
+def load_config() -> Settings:
     """Загружает конфигурацию из переменных окружения."""
-    load_dotenv()
-    token = os.getenv('TOKEN_API')
-    admin_id = os.getenv('admin_id')
-    url_sms_activate = os.getenv('url_sms_activate')
-    url_api_sms = os.getenv('url_api_sms')
-
-    if (token is None
-            or admin_id is None
-            or url_sms_activate is None
-            or url_api_sms is None):
-        raise ValueError("Одна из переменных окружения имеет значение None")
-
-    return token, int(admin_id), url_sms_activate, url_api_sms
+    return Settings() # type: ignore
 
 
 async def main() -> None:
     """Запускает бота и начинает процесс опроса доступных номеров."""
-    token, admin_id, url_sms_activate, url_api_sms = load_config()
+    settings = load_config()
+    if not all([settings.token,
+                settings.admin_id,
+                settings.url_sms_activate,
+                settings.url_api_sms]):
+        raise ValueError("Отсутствуют обязательные параметры конфигурации.")
 
-    bot = Bot(token=token)
-    sms_service = SmsService(admin_id)
-    number_checker = NumberChecker(sms_service, url_sms_activate, url_api_sms)
-    handler = BotHandler(bot, admin_id, sms_service, number_checker)
+    bot = Bot(token=settings.token)
+    sms_service = SmsService(settings.admin_id)
+    number_checker = NumberChecker(sms_service,
+                                   settings.url_sms_activate,
+                                   settings.url_api_sms)
+    handler = BotHandler(bot, settings.admin_id, sms_service, number_checker)
 
     dp = Dispatcher(storage=MemoryStorage())
     dp.message.register(handler.start_command,
